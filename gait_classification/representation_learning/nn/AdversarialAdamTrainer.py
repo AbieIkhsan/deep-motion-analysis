@@ -66,9 +66,7 @@ class AdversarialAdamTrainer(object):
         disc_real_result = T.nnet.sigmoid(disc_result[self.batchsize:])
 
         # generator update
-        gen_cost = self.generator_cost(disc_fake_result) #+ self.l1_weight * self.l1_regularization(gen_network) + \
-                                                         #   self.l2_weight * self.l2_regularization(gen_network)
-        
+        gen_cost = self.generator_cost(disc_fake_result)
         gen_gparams = T.grad(gen_cost, self.gen_params)
 
         gen_m0params = [self.gen_beta1 * m0p + (1-self.gen_beta1) *  gp     for m0p, gp in zip(self.gen_m0params, gen_gparams)]
@@ -85,9 +83,7 @@ class AdversarialAdamTrainer(object):
                    [(self.gen_t, self.gen_t+1)])
 
         # discriminator update
-        disc_cost = self.discriminator_cost(disc_fake_result, disc_real_result) # + \
-                                                    # self.l1_weight * self.l1_regularization(gen_network) + \
-                                                    # self.l2_weight * self.l2_regularization(gen_network)
+        disc_cost = self.discriminator_cost(disc_fake_result, disc_real_result)
 
         disc_gparams = T.grad(disc_cost, self.disc_params)
 
@@ -113,7 +109,6 @@ class AdversarialAdamTrainer(object):
         
         # variables to store parameters
         self.gen_network = gen_network
-
         input = train_input.type()
         
         # Match batch index
@@ -153,11 +148,14 @@ class AdversarialAdamTrainer(object):
             self.rng.shuffle(train_batchinds)
             
             sys.stdout.write('\n')
-            
+
             tr_gen_costs  = []
             tr_disc_costs = []
             for bii, bi in enumerate(train_batchinds):
                 tr_gen_cost, tr_disc_cost = train_func(bi)
+
+                sys.stdout.write('\r[Epoch %i]   generative cost: %.5f   discriminative cost: %.5f' % (epoch, tr_gen_cost, tr_disc_cost))
+                sys.stdout.flush()
 
                 tr_gen_costs.append(tr_gen_cost)
                 if np.isnan(tr_gen_costs[-1]):
@@ -177,6 +175,8 @@ class AdversarialAdamTrainer(object):
         generate_sample_images = theano.function([], self.generator(self.gen_network, gen_rand_input))
 
         sample = generate_sample_images()
+
+        print "sample image: ", sample[0]
 
         # the transpose is rowx, rowy, height, width -> rowy, height, rowx, width
         sample = sample.reshape((10,10,28,28)).transpose(1,2,0,3).reshape((10*28, 10*28))

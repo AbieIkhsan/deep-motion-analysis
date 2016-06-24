@@ -14,7 +14,6 @@ from nn.AdversarialAdamTrainer import AdversarialAdamTrainer
 from nn.ReshapeLayer import ReshapeLayer
 
 from utils import load_data
-from utils import randomize_uniform_data
 
 rng = np.random.RandomState(23455)
 
@@ -28,9 +27,6 @@ valid_set_x, valid_set_y = map(shared, datasets[1])
 test_set_x, test_set_y   = map(shared, datasets[2])
 
 batchsize = 100
-
-#generator_source_z = randomize_uniform_data(rng, batchsize, 100)
-#generator_source_z = map(shared, generator_source_z)
 
 generatorNetwork = Network(
 	NoiseLayer(rng, 0.3),
@@ -48,11 +44,11 @@ generatorNetwork = Network(
 discriminatorNetwork = Network(
 	DropoutLayer(rng, 0.2),
 	HiddenLayer(rng, (784, 240)),
-	ActivationLayer(rng, f='PReLU'),
-	DropoutLayer(rng, 0.3),
+	#ActivationLayer(rng, f='PReLU'),
+	DropoutLayer(rng, 0.5),
 	HiddenLayer(rng, (240, 240)),
-	ActivationLayer(rng, f='PReLU'),
-	DropoutLayer(rng, 0.3),
+	#ActivationLayer(rng, f='PReLU'),
+	DropoutLayer(rng, 0.5),
 	HiddenLayer(rng, (240, 1)),
 )
 
@@ -70,7 +66,7 @@ trainer = AdversarialAdamTrainer(rng=rng,
 								batchsize=batchsize, 
 								gen_cost=generative_cost, 
 								disc_cost=discriminative_cost,
-								epochs=100)
+								epochs=80)
 
 trainer.train(gen_network=generatorNetwork, 
 								disc_network=discriminatorNetwork, 
