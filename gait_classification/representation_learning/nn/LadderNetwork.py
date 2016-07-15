@@ -6,6 +6,7 @@ import theano.tensor as T
 
 from ActivationLayer import ActivationLayer
 from HiddenLayer import HiddenLayer
+from Param import Param
 
 from theano.ifelse import ifelse
 from theano.tensor.shared_randomstreams import RandomStreams
@@ -59,7 +60,7 @@ class LadderNetwork(object):
 
         self.n_units =  [l.output_units for l in self.encoding_layers if (hasattr(l, 'output_units'))]
         # Dimensionality of the input
-        self.n_units.insert(0, self.encoding_layers[0].input_units)
+        self.n_units.insert(0, self.encoding_layers[0].input_units[::-1])
 
         def setToOne(a, idx):
             a[:, idx] = 1.
@@ -69,11 +70,11 @@ class LadderNetwork(object):
         concat = lambda tup, i: list(tup) + [i]
 
         # Parameters needed to learn an optimal denoising function
-        self.A = [setToOne(np.zeros((concat(i[1:], 10)), dtype=theano.config.floatX), [0, 1, 5, 6]) for i in self.n_units[::-1]]
+        self.A = [Param(setToOne(np.zeros((concat(i[1:], 10)), dtype=theano.config.floatX), [0, 1, 6]), True) for i in self.n_units[::-1]]
 
         # Parameters of trainable batchnorm layers
-        self.gamma = [theano.shared(value=np.ones(concat(i[1:], 10), dtype=theano.config.floatX), borrow=True) for i in self.n_units[1:]]
-        self.beta  = [theano.shared(value=np.zeros(concat(i[1:], 10), dtype=theano.config.floatX), borrow=True) for i in self.n_units[1:]]
+        self.gamma = [Param(theano.shared(value=np.ones(concat(i[1:], 10), dtype=theano.config.floatX), borrow=True), True) for i in self.n_units[1:]]
+        self.beta  = [Param(theano.shared(value=np.zeros(concat(i[1:], 10), dtype=theano.config.floatX), borrow=True), True) for i in self.n_units[1:]]
 
         self.params += self.A
         self.params += self.gamma
@@ -142,7 +143,7 @@ class LadderNetwork(object):
         """
         if (p_index > -1):
             # Trainable bn
-            bn = self.gamma[p_index] * (input + self.beta[p_index])
+            bn = self.gamma[p_index].value * (input + self.beta[p_index].value)
 
         return input
 
@@ -229,8 +230,8 @@ class LadderNetwork(object):
             all information necessary for decoding.
         """
 
-        mu = self.compute_mu(u, self.A[d_index])
-        v  = self.compute_v(u, self.A[d_index])
+        mu = self.compute_mu(u, self.A[d_index].value)
+        v  = self.compute_v(u, self.A[d_index].value)
 
         z_est = (noisy_z - mu) * v + mu
 

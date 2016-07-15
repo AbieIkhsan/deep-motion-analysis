@@ -14,8 +14,10 @@ import sys
 import theano
 import theano.tensor as T
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from copy import deepcopy
+
+data_path = '/home/jona/git/deep-motion-analysis/gait_classification/data/'
 
 def scale_to_unit_interval(ndar, eps=1e-8):
     """ Scales all values in the ndarray ndar to be between 0 and 1 """
@@ -291,11 +293,65 @@ def random_split(rng, data, one_hot_labels, proportions):
 
     return datasets
 
-def load_styletransfer(rng, split, labels='combined'):
+
+def load_hdm05(rng, split=(0.6, 0.2, 0.2), fair=True, filename = data_path + 'hdm05/data_hdm05.npz'):
 
     sys.stdout.write('... loading data\n')
 
-    data = np.load('../data/styletransfer/data_styletransfer.npz')
+    data = np.load(filename)
+
+    clips = data['clips'].swapaxes(1, 2)
+    classes = data['classes']
+
+
+    # Remove unlabeled data
+    X = clips[classes != -1]
+    Y = classes[classes != -1]
+
+    # Set up labels
+    Y = np.eye(len(np.unique(Y)))[Y]
+
+    # Set up data
+    X = X[:,:-4].astype(theano.config.floatX)
+
+    Xmean = X.mean(axis=2).mean(axis=0)[np.newaxis,:,np.newaxis]
+    Xmean[:,-3:] = 0.0
+
+    Xstd = np.array([[[X.std()]]]).repeat(X.shape[1], axis=1)
+    Xstd[:,-3:-1] = X[:,-3:-1].std()
+    Xstd[:,-1:  ] = X[:,-1:  ].std()
+
+    X = (X - Xmean) / (Xstd + 1e-10)
+
+    # Randomise data
+    I = np.arange(len(X))
+    rng.shuffle(I) 
+
+    X = X[I].astype(theano.config.floatX)
+    Y = Y[I].astype(theano.config.floatX)
+
+    # Split data and keep classes balanced
+    datasets = fair_split(rng, X, Y, split)
+
+    return datasets
+
+def load_hdm05_small(rng, split = (0.6, 0.2, 0.2), fair = True):
+    return load_hdm05(rng = rng, split = split, fair = fair, 
+                      filename = data_path + 'hdm05/data_hdm05_small.npz')
+
+def load_hdm05_easy(rng, split = (0.6, 0.2, 0.2), fair = True):
+    return load_hdm05(rng = rng, split = split, fair = fair, 
+                      filename = data_path + 'hdm05/data_hdm05_easy.npz')
+
+def load_hdm05_easy_small(rng, split = (0.6, 0.2, 0.2), fair = True):
+    return load_hdm05(rng = rng, split = split, fair = fair, 
+                      filename = data_path + 'hdm05/data_hdm05_easy_small.npz')
+
+def load_styletransfer(rng, split=(0.6, 0.2, 0.2), labels='combined'):
+
+    sys.stdout.write('... loading data\n')
+
+    data = np.load(data_path + 'styletransfer/data_styletransfer.npz')
 
     clips = data['clips'].swapaxes(1, 2)
     X = clips[:,:-4]
@@ -303,6 +359,7 @@ def load_styletransfer(rng, split, labels='combined'):
     #(Motion, Styles)
     classes = data['classes']
 
+<<<<<<< HEAD
     Xmean = X.mean(axis=2).mean(axis=0)[np.newaxis,:,np.newaxis]
     Xmean[:,-3:] = 0.0
 
@@ -314,6 +371,20 @@ def load_styletransfer(rng, split, labels='combined'):
 
     # Motion labels in one-hot vector format
     #Y = np.load('../data/styletransfer/styletransfer_one_hot.npz')[labels]
+=======
+    # get mean and std
+    preprocessed = np.load(data_path + '/styletransfer/styletransfer_preprocessed.npz')
+
+    Xmean = preprocessed['Xmean']
+    Xmean = Xmean.reshape(1,len(Xmean),1)
+    Xstd  = preprocessed['Xstd']
+    Xstd = Xstd.reshape(1,len(Xstd),1)
+
+    X = (X - Xmean) / (Xstd + 1e-10)
+
+    # Motion labels in one-hot vector format
+    Y = np.load(data_path + 'styletransfer/styletransfer_one_hot.npz')[labels]
+>>>>>>> 787b94fdb269e32e91582edaad6532834375895a
 
     # Randomise data
     I = np.arange(len(X))
@@ -326,7 +397,7 @@ def load_styletransfer(rng, split, labels='combined'):
     #return datasets
     return [(X,), (), ()]
 
-def load_cmu(rng, filename='../data/cmu/data_cmu.npz'):
+def load_cmu(rng, filename = data_path + 'cmu/data_cmu.npz'):
 
     sys.stdout.write('... loading data\n')
 
@@ -344,22 +415,35 @@ def load_cmu(rng, filename='../data/cmu/data_cmu.npz'):
     Xstd[:,-3:-1] = X[:,-3:-1].std()
     Xstd[:,-1:  ] = X[:,-1:  ].std()
 
+<<<<<<< HEAD
     #Xstd[np.where(Xstd == 0)] = 1
 
+=======
+>>>>>>> 787b94fdb269e32e91582edaad6532834375895a
     X = (X - Xmean) / (Xstd + 1e-10)
     #X = X* (Xstd + 1e-10) + Xmean
 
     # Randomise data
+<<<<<<< HEAD
     #I = np.arange(len(X))
     #rng.shuffle(I); 
     #X = X[I]
     #Xstd = 1.
     #Xmean = 0.
+=======
+    I = np.arange(len(X))
+    rng.shuffle(I) 
+    X = X[I]
+>>>>>>> 787b94fdb269e32e91582edaad6532834375895a
 
     return [(X,)], Xstd, Xmean
 
 def load_cmu_small(rng):
+<<<<<<< HEAD
     return load_cmu(rng=rng, filename='../data/cmu/data_cmu_small.npz')
+=======
+    return load_cmu(rng=rng, filename = data_path + 'cmu/data_cmu_small.npz')
+>>>>>>> 787b94fdb269e32e91582edaad6532834375895a
 
 def load_mnist(rng):
     ''' Loads the MNIST dataset
@@ -368,7 +452,7 @@ def load_mnist(rng):
     :param dataset: the path to the dataset (here MNIST)
     '''
 
-    dataset = '../data/mnist/mnist.pkl.gz'
+    dataset = data_path + 'mnist/mnist.pkl.gz'
 
     # Download the MNIST dataset if it is not present
     data_dir, data_file = os.path.split(dataset)
@@ -437,37 +521,4 @@ def load_mnist(rng):
     test_set  = one_hot_labels(test_set)
 
     datasets = [train_set, valid_set, test_set]
-    return datasets
-
-def load_dsg(rng, split, fair=True):
-
-    sys.stdout.write('... loading data\n')
-
-    train_data = np.load('../data/dsg/train.npz')
-    test_data  = np.load('../data/dsg/test.npz')
-
-    X      = train_data['x'].astype(theano.config.floatX) 
-    x_test = test_data['x'].astype(theano.config.floatX) 
-
-    train_instances = X.shape[0]
-
-    X = np.concatenate((X, x_test), axis=0).swapaxes(1,3)
-    # Normalise using the moments estimated from both training and test data
-    X = (X - X.mean((0,2,3), keepdims=True)) / (X.std((0,2,3), keepdims=True) + 1e-10)
-
-    x_train = X[:train_instances]
-    x_test  = X[train_instances:]
-    # Dirty hack to get around the batchsize bug
-    x_test  = np.concatenate((x_test, x_test[-1:]), axis=0)
-
-    Y = train_data['t'] 
-    one_hot_labels = np.eye(4)[Y - 1]
-
-    if (fair):
-        datasets = fair_split(rng, x_train, one_hot_labels, split)
-    else:
-        datasets = random_split(rng, x_train, one_hot_labels, split)
-
-    datasets.append((x_test,))
-
     return datasets

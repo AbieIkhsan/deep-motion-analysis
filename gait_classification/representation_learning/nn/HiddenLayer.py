@@ -21,13 +21,15 @@ class HiddenLayer(object):
         if b is None:
             b = np.zeros((self.weights_shape[1],), dtype=theano.config.floatX)
 
+        # Make sure this works for both LadderNetworks
         self.input_units = (W.shape)
         self.output_units = (W.shape)
         
         self.W = theano.shared(value=W, borrow=True)
         self.b = theano.shared(value=b, borrow=True)
         
-        self.params = [Param(self.W, True), Param(self.b, False)]
+#        self.params = [Param(self.W, True), Param(self.b, False)]
+        self.params = [Param(self.W, True), Param(self.b, True)]
         
     def __call__(self, input):
         return input.dot(self.W) + self.b

@@ -29,6 +29,7 @@ class AdamTrainer(object):
         self.beta1 = beta1
         self.beta2 = beta2
         self.eps = eps
+        self.grad_threshold = 1000
         self.l1_weight = l1_weight
         self.l2_weight = l2_weight
         self.rng = rng
@@ -90,6 +91,7 @@ class AdamTrainer(object):
         param_values = [p.value for p in self.params]
 
         gparams = T.grad(cost, param_values)
+
         m0params = [self.beta1 * m0p + (1-self.beta1) *  gp     for m0p, gp in zip(self.m0params, gparams)]
         m1params = [self.beta2 * m1p + (1-self.beta2) * (gp*gp) for m1p, gp in zip(self.m1params, gparams)]
         params = [p - self.alpha * 
@@ -151,8 +153,14 @@ class AdamTrainer(object):
         for bi in xrange(1, len(rep_batchinds)):
             rep_tensor.append(rep_func(bi)[0])
 
+<<<<<<< HEAD
         #rep_tensor = np.array(rep_tensor)
         rep_tensor = np.squeeze(np.array(rep_tensor), axis=(1,))
+=======
+        rep_tensor =  np.array(rep_tensor)
+        new_shape =  [np.prod(rep_tensor.shape[:2])] + list(rep_tensor.shape[2:])
+        rep_tensor = rep_tensor.reshape(new_shape)
+>>>>>>> 787b94fdb269e32e91582edaad6532834375895a
 
         return rep_tensor
 
