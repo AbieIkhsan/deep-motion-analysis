@@ -6,21 +6,20 @@ from nn.AdamTrainer import AdamTrainer
 from nn.Network import AutoEncodingNetwork
 
 from tools.utils import load_mnist
+import matplotlib.pyplot as plt
 
 from nn.ActivationLayer import ActivationLayer
 from nn.AnimationPlotLines import animation_plot
 from nn.DropoutLayer import DropoutLayer
 from nn.Pool2DLayer import Pool2DLayer
 from nn.Conv2DLayer import Conv2DLayer
-from nn.ReshapeLayer import ReshapeLayer
-from nn.HiddenLayer import HiddenLayer
 from nn.VariationalLayer import VariationalLayer
 from nn.Network import Network, AutoEncodingNetwork, InverseNetwork
-import matplotlib.pyplot as plt
+from nn.ReshapeLayer import ReshapeLayer
+from nn.HiddenLayer import HiddenLayer
 
 rng = np.random.RandomState(23455)
 
-dataset = '../data/mnist/mnist.pkl.gz'
 datasets = load_mnist(rng)
 
 shared = lambda d: theano.shared(d, borrow=True)
@@ -46,13 +45,23 @@ network = Network(
         Conv2DLayer(rng, (128, 64, 5, 5), (batchsize, 64, 14, 14)),
         ActivationLayer(rng, f='ReLU'),
         Pool2DLayer(rng, (batchsize, 128, 14, 14)),
+
+        ReshapeLayer(rng, (batchsize, 128*7*7)),
+    	DropoutLayer(rng, 0.25),    
+    	HiddenLayer(rng, (128*7*7, 1200)),
+        ActivationLayer(rng, f='ReLU'),
     ),
     
     Network(
-        VariationalLayer(rng, sample=False),
+        VariationalLayer(rng),
     ),
     
     Network(
+        DropoutLayer(rng, 0.25),  
+    	HiddenLayer(rng, (600, 64*7*7)),
+        ActivationLayer(rng, f='ReLU'),
+    	ReshapeLayer(rng, (batchsize, 64, 7, 7)),
+
         InverseNetwork(Pool2DLayer(rng, (batchsize, 64, 14, 14))),
         DropoutLayer(rng, 0.25),
         Conv2DLayer(rng, (32, 64, 5, 5), (batchsize, 64, 14, 14)),
@@ -79,21 +88,24 @@ def cost(networks, X, Y):
     repr_cost = T.mean((network_d(network_v(H)) - Y)**2)
     
     return repr_amount * repr_cost + vari_amount * vari_cost
-    
+
+print "VAE MNIST"
 
 trainer = AdamTrainer(rng, batchsize=1, epochs=50, alpha=0.00001, cost=cost)
-network.load(filename=[[None, '../models/mnist/conv_varae/v_1/layer_0.npz', None, None, 
-                                        None, '../models/mnist/conv_varae/v_1/layer_1.npz', None, None,],
+
+trainer.train(network, train_set_x, train_set_x, filename=[[None, '../models/mnist/conv_varae/v_0/layer_0.npz', None, None, 
+                                        None, '../models/mnist/conv_varae/v_0/layer_1.npz', None, None,
+                                        None, None, '../models/mnist/conv_varae/v_0/layer_2.npz', None],
                                         [None,],
-                                        [None, None, '../models/mnist/conv_varae/v_1/layer_2.npz', None,
-                                        None, None, '../models/mnist/conv_varae/v_1/layer_3.npz', None,],])
+                                        [None, '../models/mnist/conv_varae/v_0/layer_3.npz', None, None,
+                                        None, None, '../models/mnist/conv_varae/v_0/layer_4.npz', None,
+                                        None, None, '../models/mnist/conv_varae/v_0/layer_5.npz', None,],])
+
 
 result = trainer.get_representation(network, train_set_x, 2)
 
-print "result shape: ", result.shape
-
-sample = result[:100]
-sample = sample.reshape((10,10,28,28)).transpose(1,2,0,3).reshape((10*28, 10*28))
-plt.imshow(sample, cmap = plt.get_cmap('gray'), vmin=0, vmax=1)
-plt.savefig('samples/sampleImages_mnist_not_sampled_5')
+#sample = result[:100]
+#sample = sample.reshape((10,10,28,28)).transpose(1,2,0,3).reshape((10*28, 10*28))
+#plt.imshow(sample, cmap = plt.get_cmap('gray'), vmin=0, vmax=1)
+#plt.savefig('samples/sampleImages_cnn_vae')
 

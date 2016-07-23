@@ -15,7 +15,7 @@ original_dim = 784
 latent_dim = 2
 intermediate_dim = 128
 epsilon_std = 0.01
-nb_epoch = 40
+nb_epoch = 10
 
 x = Input(batch_shape=(batch_size, original_dim))
 h = Dense(intermediate_dim, activation='relu')(x)
@@ -59,6 +59,10 @@ vae.fit(x_train, x_train,
         nb_epoch=nb_epoch,
         batch_size=batch_size,
         validation_data=(x_test, x_test))
+
+#get_layer_output = K.function([vae.layers[0].input], [vae.layers[4].output])
+#layer_output = get_layer_output([x_train])[0]
+#print layer_output.shape
 
 # build a model to project inputs on the latent space
 encoder = Model(x, z_mean)

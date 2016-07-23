@@ -17,7 +17,7 @@ import theano.tensor as T
 from collections import Counter, defaultdict
 from copy import deepcopy
 
-data_path = '/home/jona/git/deep-motion-analysis/gait_classification/data/'
+data_path = '/home/deep/Abie/deep-motion-analysis/gait_classification/data/'
 
 def scale_to_unit_interval(ndar, eps=1e-8):
     """ Scales all values in the ndarray ndar to be between 0 and 1 """

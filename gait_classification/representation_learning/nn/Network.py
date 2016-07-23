@@ -36,8 +36,6 @@ class Network(object):
         if filename is None: return
 
         for fname, layer in zip(filename, self.layers):
-            print fname
-            print layer
             layer.save(fname)
         
     def load(self, filename):

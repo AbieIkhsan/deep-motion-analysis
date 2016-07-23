@@ -13,12 +13,13 @@ class VariationalLayer(object):
     def __call__(self, input):
         if self.sample:
             mu, sg = input[:,0::2], input[:,1::2]
-            eps = self.theano_rng.normal(mu.shape, dtype=theano.config.floatX)
-            eta = 1e-8
+            eps = self.theano_rng.normal(mu.shape, std=0.1, dtype=theano.config.floatX)
+            eta = 1
 
-            return mu + T.sqrt(T.exp(sg + eta)) * eps
+            #return mu + T.sqrt(T.exp(sg * eta)) * eps
+            return mu + T.exp(sg * eta) * eps
         else:
-            return input[:,0::2]
+            return input[:,0::2] 
     
     def inv(self, output): pass
     def load(self, filename): pass

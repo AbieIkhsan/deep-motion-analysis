@@ -31,7 +31,7 @@ network = Network(
     ),
     
     Network(
-        VariationalLayer(rng),
+        VariationalLayer(rng, sample=False),
     ),
     
     Network(
@@ -50,11 +50,11 @@ shared = lambda d: theano.shared(d, borrow=True)
 dataset, std, mean = load_cmu_small(rng)
 E = shared(dataset[0][0])
 
-network.load([[None, '../models/cmu/conv_varae/v_4/layer_0.npz', None, None, 
-                None, '../models/cmu/conv_varae/v_4/layer_1.npz', None, None,],
+network.load([[None, '../models/cmu/conv_varae/v_2/layer_0.npz', None, None, 
+                None, '../models/cmu/conv_varae/v_2/layer_1.npz', None, None,],
                 [None,],
-                [None, None, '../models/cmu/conv_varae/v_4/layer_2.npz', None,
-                None, None, '../models/cmu/conv_varae/v_4/layer_3.npz',],])
+                [None, None, '../models/cmu/conv_varae/v_2/layer_3.npz', None,
+                None, None, '../models/cmu/conv_varae/v_2/layer_4.npz',],])
 
 def cost(networks, X, Y):
     network_u, network_v, network_d = networks.layers
@@ -75,11 +75,11 @@ result = trainer.get_representation(network, E, 2)  * (std + 1e-10) + mean
 
 print result.shape
 
-dataset_ = dataset[0][0] * (std + 1e-10) + mean
+dataset_ = dataset[0][0] * (std) + mean
 
-new1 = result[250:251]
-new2 = result[269:270]
-new3 = result[0:1]
+new1 = result[750:751]
+new2 = result[769:770]
+new3 = result[900:901]
 
 animation_plot([new1, new2, new3], interval=15.15)
 

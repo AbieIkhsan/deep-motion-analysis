@@ -17,7 +17,7 @@ import theano.tensor as T
 from collections import Counter, defaultdict
 from copy import deepcopy
 
-data_path = '/home/jona/git/deep-motion-analysis/gait_classification/data/'
+data_path = '/home/deep/Abie/deep-motion-analysis/gait_classification/data/'
 
 def scale_to_unit_interval(ndar, eps=1e-8):
     """ Scales all values in the ndarray ndar to be between 0 and 1 """
@@ -359,19 +359,6 @@ def load_styletransfer(rng, split=(0.6, 0.2, 0.2), labels='combined'):
     #(Motion, Styles)
     classes = data['classes']
 
-<<<<<<< HEAD
-    Xmean = X.mean(axis=2).mean(axis=0)[np.newaxis,:,np.newaxis]
-    Xmean[:,-3:] = 0.0
-
-    Xstd = np.array([[[X.std()]]]).repeat(X.shape[1], axis=1)
-    Xstd[:,-3:-1] = X[:,-3:-1].std()
-    Xstd[:,-1:  ] = X[:,-1:  ].std()
-
-    X = (X - Xmean) / (Xstd + 1e-10)
-
-    # Motion labels in one-hot vector format
-    #Y = np.load('../data/styletransfer/styletransfer_one_hot.npz')[labels]
-=======
     # get mean and std
     preprocessed = np.load(data_path + '/styletransfer/styletransfer_preprocessed.npz')
 
@@ -384,20 +371,19 @@ def load_styletransfer(rng, split=(0.6, 0.2, 0.2), labels='combined'):
 
     # Motion labels in one-hot vector format
     Y = np.load(data_path + 'styletransfer/styletransfer_one_hot.npz')[labels]
->>>>>>> 787b94fdb269e32e91582edaad6532834375895a
 
     # Randomise data
     I = np.arange(len(X))
     rng.shuffle(I)
 
     X = X[I].astype(theano.config.floatX)
-    #Y = Y[I].astype(theano.config.floatX)
+    Y = Y[I].astype(theano.config.floatX)
 
-    #datasets = fair_split(rng, X, Y, split)
-    #return datasets
-    return [(X,), (), ()]
+    datasets = fair_split(rng, X, Y, split)
+    
+    return datasets
 
-def load_cmu(rng, filename = data_path + 'cmu/data_cmu.npz'):
+def load_cmu(rng, filename='../data/cmu/data_cmu.npz'):
 
     sys.stdout.write('... loading data\n')
 
@@ -415,35 +401,55 @@ def load_cmu(rng, filename = data_path + 'cmu/data_cmu.npz'):
     Xstd[:,-3:-1] = X[:,-3:-1].std()
     Xstd[:,-1:  ] = X[:,-1:  ].std()
 
-<<<<<<< HEAD
     #Xstd[np.where(Xstd == 0)] = 1
 
-=======
->>>>>>> 787b94fdb269e32e91582edaad6532834375895a
     X = (X - Xmean) / (Xstd + 1e-10)
     #X = X* (Xstd + 1e-10) + Xmean
 
     # Randomise data
-<<<<<<< HEAD
     #I = np.arange(len(X))
     #rng.shuffle(I); 
     #X = X[I]
     #Xstd = 1.
     #Xmean = 0.
-=======
-    I = np.arange(len(X))
-    rng.shuffle(I) 
-    X = X[I]
->>>>>>> 787b94fdb269e32e91582edaad6532834375895a
+
+    return [(X,)], Xstd, Xmean
+
+def load_locomotion(rng, filename='../data/cmu/data_edin_locomotion_processed.npz'):
+
+    sys.stdout.write('... loading data\n')
+
+    data = np.load(filename)
+
+    clips = data['clips']
+
+    clips = np.swapaxes(clips, 1, 2)
+    X = clips[:,:-4].astype(theano.config.floatX)
+
+    Xmean = X.mean(axis=2).mean(axis=0)[np.newaxis,:,np.newaxis]
+    Xmean[:,-3:] = 0.0
+
+    Xstd = np.array([[[X.std()]]]).repeat(X.shape[1], axis=1)
+    Xstd[:,-3:-1] = X[:,-3:-1].std()
+    Xstd[:,-1:  ] = X[:,-1:  ].std()
+
+    #Xstd[np.where(Xstd == 0)] = 1
+
+    X = (X - Xmean) / (Xstd + 1e-10)
+    #X = X* (Xstd + 1e-10) + Xmean
+
+    # Randomise data
+    #I = np.arange(len(X))
+    #rng.shuffle(I); 
+    #X = X[I]
+    #Xstd = 1.
+    #Xmean = 0.
 
     return [(X,)], Xstd, Xmean
 
 def load_cmu_small(rng):
-<<<<<<< HEAD
     return load_cmu(rng=rng, filename='../data/cmu/data_cmu_small.npz')
-=======
-    return load_cmu(rng=rng, filename = data_path + 'cmu/data_cmu_small.npz')
->>>>>>> 787b94fdb269e32e91582edaad6532834375895a
+    #return load_cmu(rng=rng, filename = data_path + 'cmu/data_cmu_small.npz')
 
 def load_mnist(rng):
     ''' Loads the MNIST dataset

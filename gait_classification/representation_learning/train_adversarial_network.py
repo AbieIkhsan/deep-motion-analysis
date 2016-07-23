@@ -13,12 +13,11 @@ from nn.Network import Network
 from nn.AdversarialAdamTrainer import AdversarialAdamTrainer
 from nn.ReshapeLayer import ReshapeLayer
 
-from utils import load_data
+from tools.utils import load_mnist
 
 rng = np.random.RandomState(23455)
 
-dataset = '../data/mnist/mnist.pkl.gz'
-datasets = load_data(dataset)
+datasets = load_mnist(rng)
 
 shared = lambda d: theano.shared(d, borrow=True)
 
@@ -29,33 +28,42 @@ test_set_x, test_set_y   = map(shared, datasets[2])
 batchsize = 100
 
 generatorNetwork = Network(
+	DropoutLayer(rng, 0.2),
 	HiddenLayer(rng, (100, 1200)),
 	BatchNormLayer(rng, (100, 1200)),
 	ActivationLayer(rng, f='ReLU'),
+	DropoutLayer(rng, 0.2),
 	HiddenLayer(rng, (1200, 1200)),
 	BatchNormLayer(rng, (1200, 1200)),
 	ActivationLayer(rng, f='ReLU'),
+	DropoutLayer(rng, 0.2),
 	HiddenLayer(rng, (1200, 1200)),
 	BatchNormLayer(rng, (1200, 1200)),
 	ActivationLayer(rng, f='ReLU'),
+	DropoutLayer(rng, 0.2),
 	HiddenLayer(rng, (1200, 1200)),
 	BatchNormLayer(rng, (1200, 1200)),
 	ActivationLayer(rng, f='ReLU'),
+	DropoutLayer(rng, 0.2),
 	HiddenLayer(rng, (1200, 784)),
 	BatchNormLayer(rng, (1200, 784)),
-	ActivationLayer(rng, f='ReLU'),
+	ActivationLayer(rng, f='PReLU'),
 )
 
 discriminatorNetwork = Network(
 	DropoutLayer(rng, 0.2),
 	HiddenLayer(rng, (784, 240)),
-	BatchNormLayer(rng, (784, 240)),
+	#BatchNormLayer(rng, (784, 240)),
 	ActivationLayer(rng, f='PReLU'),
-	DropoutLayer(rng, 0.4),
+	DropoutLayer(rng, 0.25),
+	HiddenLayer(rng, (240, 240)),
+	#BatchNormLayer(rng, (240, 240)),
+	ActivationLayer(rng, f='PReLU'),
+	DropoutLayer(rng, 0.25),
 	HiddenLayer(rng, (240, 240)),
 	BatchNormLayer(rng, (240, 240)),
 	ActivationLayer(rng, f='PReLU'),
-	DropoutLayer(rng, 0.4),
+	DropoutLayer(rng, 0.25),
 	HiddenLayer(rng, (240, 1)),
 	BatchNormLayer(rng, (240, 1)),
 )
@@ -74,7 +82,7 @@ trainer = AdversarialAdamTrainer(rng=rng,
 								batchsize=batchsize, 
 								gen_cost=generative_cost, 
 								disc_cost=discriminative_cost,
-								epochs=10)
+								epochs=15)
 
 trainer.train(gen_network=generatorNetwork, 
 								disc_network=discriminatorNetwork, 

@@ -16,8 +16,8 @@ class AdversarialAdamTrainer(object):
     def __init__(self, rng, batchsize, 
                     gen_cost, disc_cost,
                     epochs=100, 
-                    gen_alpha=0.0000001, gen_beta1=0.75, gen_beta2=0.999, 
-                    disc_alpha=0.0000001, disc_beta1=0.75, disc_beta2=0.999, 
+                    gen_alpha=0.00001, gen_beta1=0.85, gen_beta2=0.90, 
+                    disc_alpha=0.00001, disc_beta1=0.85, disc_beta2=0.90, 
                     eps=1e-08, 
                     l1_weight=0.0, l2_weight=0.1, n_hidden_source = 100., mean=0, std=1):
 
@@ -45,9 +45,9 @@ class AdversarialAdamTrainer(object):
         self.discriminator_cost = disc_cost
 
     def randomize_uniform_data(self, n_input):
-        return self.rng.uniform(size=(n_input, 100), 
-                low=-np.float32(np.sqrt(3)), 
-                high=np.float32(np.sqrt(3)))
+        return self.rng.uniform(size=(n_input, 800), 
+                low=-np.sqrt(5, dtype=theano.config.floatX), 
+                high=np.sqrt(5, dtype=theano.config.floatX)).astype(theano.config.floatX)
 
     def l1_regularization(self, network, target=0.0):
         return sum([T.mean(abs(p - target)) for p in network.params])
@@ -62,8 +62,9 @@ class AdversarialAdamTrainer(object):
         disc_result = self.discriminator(disc_network, concat_gen_input)
         disc_result = disc_result.flatten()
 
+        # for mnist
         disc_fake_result = T.nnet.sigmoid(disc_result[:self.batchsize])
-        disc_real_result = T.nnet.sigmoid(disc_result[self.batchsize:])
+        disc_real_result = T.nnet.sigmoid(disc_result[self.batchsize:])   
 
         # generator update
         gen_cost = self.generator_cost(disc_fake_result)
@@ -112,6 +113,7 @@ class AdversarialAdamTrainer(object):
         
         # variables to store parameters
         self.gen_network = gen_network
+
         input = train_input.type()
         
         # Match batch index
@@ -177,29 +179,26 @@ class AdversarialAdamTrainer(object):
                     print "NaN in discriminator cost."
                     return
 
+            gen_network.save(filename)
+
+            """
+            self.gen_network.params = self.gen_params
+            
+            gen_rand_input = theano.shared(self.randomize_uniform_data(100), name = 'z')
+            generate_sample_images = theano.function([], self.generator(self.gen_network, gen_rand_input))
+            sample = generate_sample_images()
+
+            print
+            print sample.shape
+
+            sample = sample.reshape((10,10,28,28)).transpose(1,2,0,3).reshape((10*28, 10*28))
+            plt.imshow(sample, cmap = plt.get_cmap('gray'), vmin=0, vmax=1)
+            plt.savefig('samples_mnist/sample_BN_' + str(epoch))
+            """
+
         print "Finished training..."
 
         """
-        self.gen_network.params = self.gen_params
-        #gen_network_param_values = [p.value for p in self.gen_network.params]
-        
-        #gen_rand_input = T.matrix() 
-        #generated_images = self.generator(self.gen_network, gen_rand_input)
-        #generate_sample_images = theano.function([gen_rand_input], generated_images)
-        
-        gen_rand_input = theano.shared(self.randomize_uniform_data(100), name = 'z')
-        generate_sample_images = theano.function([], self.generator(self.gen_network, gen_rand_input))
-        sample = generate_sample_images()
-
-        #sample = generate_sample_images(self.randomize_uniform_data(100))
-
-        sample = sample.reshape((10,10,28,28)).transpose(1,2,0,3).reshape((10*28, 10*28))
-        plt.imshow(sample, cmap = plt.get_cmap('gray'), vmin=0, vmax=1)
-        plt.savefig('samples/sampleImages_new')
-
-        end_time = timeit.default_timer()
-        """
-
         self.gen_network.params = self.gen_params
         
         gen_rand_input = theano.shared(self.randomize_uniform_data(100), name = 'z')
@@ -215,11 +214,4 @@ class AdversarialAdamTrainer(object):
         new3 = result[0:1]
 
         animation_plot([new1, new2, new3], interval=15.15)
-
-        
-
-        #sample = generate_sample_images(self.randomize_uniform_data(100))
-
-        #sample = sample.reshape((10,10,28,28)).transpose(1,2,0,3).reshape((10*28, 10*28))
-        #plt.imshow(sample, cmap = plt.get_cmap('gray'), vmin=0, vmax=1)
-        #plt.savefig('samples/sampleImages_new')
+        """
