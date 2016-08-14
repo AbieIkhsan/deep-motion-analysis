@@ -13,7 +13,7 @@ class VariationalLayer(object):
     def __call__(self, input):
         if self.sample:
             mu, sg = input[:,0::2], input[:,1::2]
-            eps = self.theano_rng.normal(mu.shape, std=0.1, dtype=theano.config.floatX)
+            eps = self.theano_rng.normal(mu.shape, std=0.01, dtype=theano.config.floatX)
             eta = 1
 
             #return mu + T.sqrt(T.exp(sg * eta)) * eps

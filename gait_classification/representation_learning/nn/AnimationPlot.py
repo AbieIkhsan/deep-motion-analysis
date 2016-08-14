@@ -11,6 +11,7 @@ def animation_plot(animations, filename=None, ignore_root=False, interval=33.33,
     
     for ai in range(len(animations)):
         anim = np.swapaxes(animations[ai][0].copy(), 0, 1)
+        print anim.shape
         
         joints, root_x, root_z, root_r = anim[:,:-3], anim[:,-3], anim[:,-2], anim[:,-1]
         joints = joints.reshape((len(joints), -1, 3))

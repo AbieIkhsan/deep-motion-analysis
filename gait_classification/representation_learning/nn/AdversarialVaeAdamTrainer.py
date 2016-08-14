@@ -15,9 +15,9 @@ class AdversarialAdamTrainer(object):
     def __init__(self, rng, batchsize, 
                     enc_cost, dec_cost, disc_cost,
                     epochs=100, 
-                    enc_alpha=0.00005, enc_beta1=0.75, enc_beta2=0.999, 
-                    dec_alpha=0.00005, dec_beta1=0.75, dec_beta2=0.999, 
-                    disc_alpha=0.00005, disc_beta1=0.75, disc_beta2=0.999, 
+                    enc_alpha=0.00005, enc_beta1=0.9, enc_beta2=0.999, 
+                    dec_alpha=0.00005, dec_beta1=0.9, dec_beta2=0.999, 
+                    disc_alpha=0.00005, disc_beta1=0.9, disc_beta2=0.999, 
 
                     eps=1e-08, 
                     l1_weight=0.0, l2_weight=0.1, n_hidden_source = 100):
@@ -46,16 +46,16 @@ class AdversarialAdamTrainer(object):
         self.encoder = lambda network, x: network(x)        
         self.decoder = lambda network, x: network(x)
         self.discriminator = lambda network, x: network(x)
+        self.sampler = lambda network, x: network(x)
 
         self.encoder_cost = enc_cost
         self.decoder_cost = dec_cost
         self.discriminator_cost = disc_cost
 
     def randomize_uniform_data(self, n_input):
-        return self.rng.uniform(size=(n_input, 800), 
-                low=-np.sqrt(3, dtype=theano.config.floatX), 
-                high=np.sqrt(3, dtype=theano.config.floatX)).astype(theano.config.floatX)
-
+        return self.rng.uniform(size=(n_input, 400), 
+                low=-2, 
+                high=2).astype(theano.config.floatX)
 
     def l1_regularization(self, network, target=0.0):
         return sum([T.mean(abs(p - target)) for p in network.params])
@@ -63,15 +63,20 @@ class AdversarialAdamTrainer(object):
     def l2_regularization(self, network, target=0.0):
         return sum([T.mean((p - target)**2) for p in network.params])
 
-    def get_cost_updates(self, enc_network, dec_network, disc_network, input, gen_rand_input):
+    def get_cost_updates(self, enc_network, dec_network, disc_network, var_network, input, gen_rand_input):
 
         enc_result = self.encoder(enc_network, input)
-        dec_result = self.decoder(dec_network, enc_result)
-        disc_real_result = self.discriminator(disc_network, enc_result)
-        disc_fake_result = self.discriminator(disc_network, gen_rand_input)
+        sample_result = self.sampler(var_network, enc_result)
+
+        dec_sample_result = self.decoder(dec_network, sample_result)
+        dec_fake_result = self.decoder(dec_network, gen_rand_input)
+        
+        disc_sample_result = self.discriminator(disc_network, dec_sample_result)
+        disc_fake_result = self.discriminator(disc_network, dec_fake_result)
+        disc_real_result = self.discriminator(disc_network, input)
 
         # encoder update
-        enc_cost, reconst_cost = self.encoder_cost(disc_real_result, dec_result, input)
+        enc_cost, vari_cost, repr_cost = self.encoder_cost(enc_result, dec_sample_result, input)
 
         enc_param_values = [p.value for p in self.enc_params]
         enc_gparams = T.grad(enc_cost, enc_param_values)
@@ -90,7 +95,7 @@ class AdversarialAdamTrainer(object):
                    [(self.enc_t, self.enc_t+1)])
 
         # decoder update
-        dec_cost = self.decoder_cost(dec_result, input)
+        dec_cost = self.decoder_cost(dec_sample_result, disc_sample_result, disc_fake_result, disc_real_result, input)
 
         dec_param_values = [p.value for p in self.dec_params]
         dec_gparams = T.grad(dec_cost, dec_param_values)
@@ -109,7 +114,7 @@ class AdversarialAdamTrainer(object):
                    [(self.dec_t, self.dec_t+1)])
 
         # discriminator update
-        disc_cost = self.discriminator_cost(disc_fake_result, disc_real_result)
+        disc_cost = self.discriminator_cost(disc_sample_result, disc_fake_result, disc_real_result)
 
         disc_param_values = [p.value for p in self.disc_params]
         disc_gparams = T.grad(disc_cost, disc_param_values)
@@ -127,9 +132,9 @@ class AdversarialAdamTrainer(object):
                    [(m1, m1n) for m1, m1n in zip(self.disc_m1params, disc_m1params)] +
                    [(self.disc_t, self.disc_t+1)])
 
-        return (enc_cost, dec_cost, disc_cost, reconst_cost, updates)
+        return (enc_cost, dec_cost, disc_cost, vari_cost, repr_cost, updates)
 
-    def train(self, enc_network, dec_network, disc_network, train_input, filename=None):
+    def train(self, enc_network, dec_network, disc_network, var_network, train_input, filename=None):
 
         """ Conventions: For training examples with labels, pass a one-hot vector, otherwise a numpy array with zero values.
         """
@@ -138,6 +143,7 @@ class AdversarialAdamTrainer(object):
         self.enc_network = enc_network
         self.dec_network = dec_network
         self.disc_network = disc_network
+        self.var_network = var_network
 
         input = train_input.type()
         
@@ -166,10 +172,10 @@ class AdversarialAdamTrainer(object):
         self.disc_m1params = [theano.shared(np.zeros(p.shape.eval(), dtype=theano.config.floatX), borrow=True) for p in disc_param_values]
         self.disc_t = theano.shared(np.array([1], dtype=theano.config.floatX))
 
-        enc_cost, dec_cost, disc_cost, reconst_cost, updates = self.get_cost_updates(enc_network, dec_network, disc_network, input, rand_input)
+        enc_cost, dec_cost, disc_cost, vari_cost, repr_cost, updates = self.get_cost_updates(enc_network, dec_network, disc_network, var_network, input, rand_input)
 
         train_func = theano.function(inputs=[index, rand_input], 
-                                     outputs=[enc_cost, dec_cost, disc_cost, reconst_cost], 
+                                     outputs=[enc_cost, dec_cost, disc_cost, vari_cost, repr_cost], 
                                      updates=updates, 
                                      givens={input:train_input[index*self.batchsize:(index+1)*self.batchsize],}, 
                                      allow_input_downcast=True)
@@ -187,6 +193,7 @@ class AdversarialAdamTrainer(object):
         enc_cost_mean = []
         dec_cost_mean = []
         disc_cost_mean = []
+        vari_cost_mean = []
         repr_cost_mean = []
 
         for epoch in range(self.epochs):
@@ -199,12 +206,13 @@ class AdversarialAdamTrainer(object):
             tr_enc_costs  = []
             tr_dec_costs  = []
             tr_disc_costs = []
-            tr_reconst_costs = []
+            tr_vari_costs = []
+            tr_repr_costs = []
 
             for bii, bi in enumerate(train_batchinds):
                 rand_data = self.randomize_uniform_data(self.batchsize)
                 
-                tr_enc_cost, tr_dec_cost, tr_disc_cost, tr_reconst_cost = train_func(bi, rand_data)
+                tr_enc_cost, tr_dec_cost, tr_disc_cost, tr_vari_cost, tr_repr_cost = train_func(bi, rand_data)
 
                 sys.stdout.write('\r[Epoch %i]   enc cost: %.5f   dec cost: %.5f   disc cost: %.5f' % (epoch, tr_enc_cost, tr_dec_cost, tr_disc_cost))
                 sys.stdout.flush()
@@ -219,26 +227,28 @@ class AdversarialAdamTrainer(object):
                     print "NaN in decoder cost."
                     return                    
 
-                tr_disc_costs.append(np.absolute(0.5-tr_disc_cost))
+                tr_disc_costs.append(np.absolute(2-tr_disc_cost))
                 if np.isnan(tr_disc_costs[-1]):
                     print "NaN in discriminator cost."
                     return
 
-                tr_reconst_costs.append(tr_reconst_cost)
+                tr_vari_costs.append(tr_vari_cost)
+                tr_repr_costs.append(tr_repr_cost)
 
             enc_cost_mean.append(np.mean(tr_enc_costs))
             dec_cost_mean.append(np.mean(tr_dec_costs))
             disc_cost_mean.append(np.mean(tr_disc_costs))
-            repr_cost_mean.append(np.mean(tr_reconst_costs))
+            vari_cost_mean.append(np.mean(tr_vari_costs))
+            repr_cost_mean.append(np.mean(tr_repr_costs))
 
             dec_network.save(filename)
 
-        repr_plot, = plt.plot(repr_cost_mean, label='Error value')
-        plt.legend(handles=[repr_plot,])
+        repr_plot, = plt.plot(repr_cost_mean, label='Repr. Error')
+        disc_plot, = plt.plot(disc_cost_mean, label='Disc. Error')
+        plt.legend(handles=[repr_plot,disc_plot,])
         plt.show()
 
-        np.savez_compressed('ae_gan_stats.npz', n_epochs=self.epochs, enc_cost_mean=enc_cost_mean, dec_cost_mean=dec_cost_mean, disc_cost_mean=disc_cost_mean, repr_cost_mean=repr_cost_mean)
-
+        np.savez_compressed('vae_gan_stats.npz', n_epochs=self.epochs, enc_cost_mean=enc_cost_mean, dec_cost_mean=dec_cost_mean, disc_cost_mean=disc_cost_mean, vari_cost_mean=vari_cost_mean, repr_cost_mean=repr_cost_mean)
 
         print
         print "Finished training..."

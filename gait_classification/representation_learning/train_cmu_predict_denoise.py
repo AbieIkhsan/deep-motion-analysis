@@ -74,15 +74,7 @@ result = trainer.get_representation(network_denoise, result_noisy_shared, len(ne
 
 dataset_ = dataset[0][0] * (std + 1e-10) + mean
 
-# Nice walking 50
-
 new1 = result[70:71]
 new2 = dataset_[70:71]
 
 animation_plot([new1, new2], interval=15.15)
-
-#trainer.train(network=network, train_input=train_set_x_first, train_output=train_set_x_second,
-#              filename=[None, '../models/cmu/predict_v_0/layer_0.npz', None, None,   # Noise, 1. Conv, Activation, Pooling
-#                              '../models/cmu/predict_v_0/layer_1.npz', None, None,   # 2. Conv, Activation, Pooling
-#                              '../models/cmu/predict_v_0/layer_2.npz', None, None,]) # 3. Conv, Activation, Pooling
-	

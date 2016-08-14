@@ -60,7 +60,7 @@ class AdversarialAdamTrainer(object):
         gen_result = self.generator(gen_network, gen_rand_input)
         concat_gen_input = T.concatenate([gen_result, input], axis = 0)
         disc_result = self.discriminator(disc_network, concat_gen_input)
-        disc_result = disc_result.flatten()
+        #disc_result = disc_result.flatten()
 
         # for mnist
         disc_fake_result = T.nnet.sigmoid(disc_result[:self.batchsize])
@@ -152,6 +152,9 @@ class AdversarialAdamTrainer(object):
 
         start_time = timeit.default_timer()
 
+        gen_cost_mean = []
+        disc_cost_mean = []
+
         for epoch in range(self.epochs):
             
             train_batchinds = np.arange(train_input.shape.eval()[0] // self.batchsize)
@@ -169,49 +172,29 @@ class AdversarialAdamTrainer(object):
                 sys.stdout.write('\r[Epoch %i]   generative cost: %.5f   discriminative cost: %.5f' % (epoch, tr_gen_cost, tr_disc_cost))
                 sys.stdout.flush()
 
-                tr_gen_costs.append(tr_gen_cost)
+                tr_gen_costs.append(np.absolute(1-tr_gen_cost))
                 if np.isnan(tr_gen_costs[-1]):
                     print "NaN in generator cost."
                     return
 
-                tr_disc_costs.append(tr_disc_cost)
+                tr_disc_costs.append(np.absolute(0.5-tr_disc_cost))
                 if np.isnan(tr_disc_costs[-1]):
                     print "NaN in discriminator cost."
                     return
 
+                tr_gen_costs.append(tr_gen_cost)
+                tr_disc_costs.append(tr_disc_cost)
+
             gen_network.save(filename)
 
-            """
-            self.gen_network.params = self.gen_params
-            
-            gen_rand_input = theano.shared(self.randomize_uniform_data(100), name = 'z')
-            generate_sample_images = theano.function([], self.generator(self.gen_network, gen_rand_input))
-            sample = generate_sample_images()
+            gen_cost_mean.append(np.mean(tr_gen_costs))
+            disc_cost_mean.append(np.mean(tr_disc_costs))
 
-            print
-            print sample.shape
+        gen_plot, = plt.plot(gen_cost_mean, label='Gen. error')
+        disc_plot, = plt.plot(disc_cost_mean, label='Disc. error')
+        plt.legend(handles=[gen_plot, disc_plot,])
+        plt.show()
 
-            sample = sample.reshape((10,10,28,28)).transpose(1,2,0,3).reshape((10*28, 10*28))
-            plt.imshow(sample, cmap = plt.get_cmap('gray'), vmin=0, vmax=1)
-            plt.savefig('samples_mnist/sample_BN_' + str(epoch))
-            """
+        np.savez_compressed('gan_stats_locom.npz', n_epochs=self.epochs, gen_cost_mean=gen_cost_mean, disc_cost_mean=disc_cost_mean)
 
         print "Finished training..."
-
-        """
-        self.gen_network.params = self.gen_params
-        
-        gen_rand_input = theano.shared(self.randomize_uniform_data(100), name = 'z')
-        generate_samples = theano.function([], self.generator(self.gen_network, gen_rand_input))
-        sample = generate_samples()
-
-        result = sample * (std + 1e-10) + mean
-
-        #dataset_ = dataset[0][0] * (std + 1e-10) + mean
-
-        new1 = result[250:251]
-        new2 = result[269:270]
-        new3 = result[0:1]
-
-        animation_plot([new1, new2, new3], interval=15.15)
-        """

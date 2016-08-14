@@ -5,6 +5,7 @@ import theano.tensor as T
 import sys
 import timeit
 
+import matplotlib.pyplot as plt
 from ActivationLayer import ActivationLayer
 from Network import AutoEncodingNetwork
 from LadderNetwork import LadderNetwork
@@ -71,8 +72,8 @@ class AdamTrainer(object):
     def get_cost_updates(self, network, input, output):
         
         y_pred = self.y_pred(network, input)
-        cost = self.cost(network, y_pred, output) + self.l1_weight * self.l1_regularization(network) + \
-                                                    self.l2_weight * self.l2_regularization(network)
+        cost, vari_cost, repr_cost = self.cost(network, y_pred, output) #+ self.l1_weight * self.l1_regularization(network) + \
+                                                  #  self.l2_weight * self.l2_regularization(network)
         error = None
 
         if (self.error):
@@ -81,7 +82,7 @@ class AdamTrainer(object):
 
         updates = self.get_grad_updates(cost)
 
-        return (cost, updates, error)
+        return (cost, vari_cost, repr_cost, updates, error)
 
     def get_grad_updates(self, cost):
         param_values = [p.value for p in self.params]
@@ -185,10 +186,10 @@ class AdamTrainer(object):
         input  = train_input.type()
         output = train_output.type()
 
-        cost, updates, error = self.get_cost_updates(network, input, output)
+        cost, vari_cost, repr_cost, updates, error = self.get_cost_updates(network, input, output)
 
         func = theano.function(inputs=[index], 
-                               outputs=[cost, error], 
+                               outputs=[cost, vari_cost, repr_cost, error], 
                                updates=updates, 
                                givens={input:train_input[index*self.batchsize:(index+1)*self.batchsize],
                                        output:train_output[index*self.batchsize:(index+1)*self.batchsize],}, 
@@ -229,9 +230,11 @@ class AdamTrainer(object):
         
         tr_costs  = []
         tr_errors = []
+        tr_vari_costs = []
+        tr_repr_costs = []
 
         for bii, bi in enumerate(func_batchinds):
-            tr_cost, tr_error = func(bi)
+            tr_cost, tr_vari_cost, tr_repr_cost, tr_error = func(bi)
 
             # tr_error might be nan for a batch without labels in semi-supervised learning
             if np.isnan(tr_error):
@@ -242,6 +245,8 @@ class AdamTrainer(object):
 
             tr_costs.append(tr_cost)
             tr_errors.append(tr_error)
+            tr_vari_costs.append(tr_vari_cost)
+            tr_repr_costs.append(tr_repr_cost)
 
             if (logging and (bii % (int(len(func_batchinds) / 1000) + 1) == 0)):
                 sys.stdout.write('\r[Epoch %i]  %0.1f%% mean error: %.5f, cost: %.5f, mean cost: %.5f' % (epoch, 100 * float(bii)/len(func_batchinds), np.mean(tr_errors), tr_cost, np.mean(tr_costs)))
@@ -249,8 +254,10 @@ class AdamTrainer(object):
 
         error_mean = np.mean(tr_errors)
         cost_mean = np.mean(tr_costs)
+        vari_cost_mean = np.mean(tr_vari_costs)
+        repr_cost_mean = np.mean(tr_repr_costs)
 
-        return error_mean, cost_mean
+        return error_mean, cost_mean, vari_cost_mean, repr_cost_mean
         
     def train(self, network, train_input, train_output, valid_input=None, valid_output=None,
                              filename=None, logging=True):
@@ -268,7 +275,6 @@ class AdamTrainer(object):
                          dtype=theano.config.floatX), borrow=True) for p in param_values]
 
         self.t = theano.shared(np.array([1], dtype=theano.config.floatX))
-
 
         train_func = self.create_train_func(network=network, train_input=train_input, 
                                             train_output=train_output)
@@ -292,9 +298,15 @@ class AdamTrainer(object):
 
         start_time = timeit.default_timer()
 
+        vari_cost_mean = []
+        repr_cost_mean = []
+
         for epoch in range(1, self.epochs+1):
 
-            curr_train_error, train_cost = self.run_func(train_func, train_input, logging=True, epoch=epoch)
+            curr_train_error, train_cost, vari_cost, repr_cost = self.run_func(train_func, train_input, logging=True, epoch=epoch)
+            vari_cost_mean.append(vari_cost)
+            repr_cost_mean.append(repr_cost)
+
             diff_train_error, last_train_error = curr_train_error-last_train_error, curr_train_error
 
             output_str = '\r[Epoch %i] 100.0%% mean training error: %.5f training diff: %.5f' % \
@@ -343,6 +355,12 @@ class AdamTrainer(object):
 
             else:
                 pass
+
+        repr_plot, = plt.plot(repr_cost_mean, label='Error value')
+        plt.legend(handles=[repr_plot,])
+        plt.show()
+
+        np.savez_compressed('vae_stats.npz', n_epochs=self.epochs, vari_cost_mean=vari_cost_mean, repr_cost_mean=repr_cost_mean)
 
         end_time = timeit.default_timer()
 

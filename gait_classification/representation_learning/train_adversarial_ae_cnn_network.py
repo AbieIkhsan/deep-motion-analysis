@@ -30,11 +30,13 @@ BATCH_SIZE = 32
 encoderNetwork = Network(
     DropoutLayer(rng, 0.25),
     Conv1DLayer(rng, (64, 66, 25), (BATCH_SIZE, 66, 240)),
+    BatchNormLayer(rng, (BATCH_SIZE, 64, 240)),
     Pool1DLayer(rng, (2,), (BATCH_SIZE, 64, 240)),
     ActivationLayer(rng, f='elu'),
 
     DropoutLayer(rng, 0.25),
     Conv1DLayer(rng, (128, 64, 25), (BATCH_SIZE, 64, 120)),
+    BatchNormLayer(rng, (BATCH_SIZE, 128, 120)),
     Pool1DLayer(rng, (2,), (BATCH_SIZE, 128, 120)),
     ActivationLayer(rng, f='elu'),
 
@@ -72,7 +74,7 @@ discriminatorNetwork = Network(
     ActivationLayer(rng, f='elu'),
     DropoutLayer(rng, 0.2),
     HiddenLayer(rng, (1200, 1200)),
-    #BatchNormLayer(rng, (240, 1200)),
+    BatchNormLayer(rng, (240, 1200)),
     ActivationLayer(rng, f='elu'),
     DropoutLayer(rng, 0.2),
     HiddenLayer(rng, (1200, 1200)),
@@ -91,7 +93,7 @@ def encoder_cost(disc_out, dec_out, input_data):
     reg_weight = 50
     recons_weight = 1
 
-    return reg_weight * reg_cost + recons_weight * recons_cost
+    return reg_weight * reg_cost + recons_weight * recons_cost, recons_cost
 
 def decoder_cost(dec_out, input_data):
     return T.sqr(dec_out - input_data).mean()
@@ -104,22 +106,22 @@ def discriminative_cost(disc_fake_out, disc_real_out):
     return disc_cost
 
 trainer = AdversarialAdamTrainer(rng=rng, 
-                                batchsize=BATCH_SIZE, 
-                                enc_cost=encoder_cost, 
-                                dec_cost=decoder_cost,
-                                disc_cost=discriminative_cost,
-                                epochs=100)
+                                    batchsize=BATCH_SIZE, 
+                                    enc_cost=encoder_cost, 
+                                    dec_cost=decoder_cost,
+                                    disc_cost=discriminative_cost,
+                                    epochs=750)
 
 trainer.train(enc_network=encoderNetwork, 
                                 dec_network=decoderNetwork,
                                 disc_network=discriminatorNetwork, 
                                 train_input=E,
-                                filename=['../models/locomotion/adv_ae/v_0/layer_0.npz',
-                                        '../models/locomotion/adv_ae/v_0/layer_1.npz', 
+                                filename=['../models/locomotion/adv_ae/v_3/layer_0.npz',
+                                        '../models/locomotion/adv_ae/v_3/layer_1.npz', 
                                         None, None,
-                                        None, None, '../models/locomotion/adv_ae/v_0/layer_2.npz', None,
-                                        None, None, '../models/locomotion/adv_ae/v_0/layer_3.npz', None,
-                                        None, None, '../models/locomotion/adv_ae/v_0/layer_4.npz', None,])
+                                        None, None, '../models/locomotion/adv_ae/v_3/layer_2.npz', None,
+                                        None, None, '../models/locomotion/adv_ae/v_3/layer_3.npz', None,
+                                        None, None, '../models/locomotion/adv_ae/v_3/layer_4.npz', None,])
 
 
 BATCH_SIZE = 50
@@ -146,17 +148,17 @@ generatorNetwork = Network(
     ActivationLayer(rng, f='elu'),
 )
 
-generatorNetwork.load(['../models/locomotion/adv_ae/v_0/layer_0.npz',
-                                        '../models/locomotion/adv_ae/v_0/layer_1.npz', 
+generatorNetwork.load(['../models/locomotion/adv_ae/v_3/layer_0.npz',
+                                        '../models/locomotion/adv_ae/v_3/layer_1.npz', 
                                         None, None,
-                                        None, None, '../models/locomotion/adv_ae/v_0/layer_2.npz', None,
-                                        None, None, '../models/locomotion/adv_ae/v_0/layer_3.npz', None,
-                                        None, None, '../models/locomotion/adv_ae/v_0/layer_4.npz', None,])
+                                        None, None, '../models/locomotion/adv_ae/v_3/layer_2.npz', None,
+                                        None, None, '../models/locomotion/adv_ae/v_3/layer_3.npz', None,
+                                        None, None, '../models/locomotion/adv_ae/v_3/layer_4.npz', None,])
 
 def randomize_uniform_data(n_input):
     return rng.uniform(size=(n_input, 800), 
-            low=-np.sqrt(25, dtype=theano.config.floatX), 
-            high=np.sqrt(25, dtype=theano.config.floatX)).astype(theano.config.floatX)
+            low=-np.sqrt(5, dtype=theano.config.floatX), 
+            high=np.sqrt(5, dtype=theano.config.floatX)).astype(theano.config.floatX)
 
 gen_rand_input = theano.shared(randomize_uniform_data(50), name = 'z')
 generate_sample_motions = theano.function([], generatorNetwork(gen_rand_input))
@@ -168,4 +170,4 @@ new1 = result[25:26]
 new2 = result[26:27]
 new3 = result[0:1]
 
-animation_plot([new1, new2, new3], interval=15.15)
+animation_plot([new1, new2, new3], filename= 'ae-gan-locomotion.mp4', interval=15.15)
